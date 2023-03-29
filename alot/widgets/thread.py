@@ -6,6 +6,7 @@ Widgets specific to thread mode
 """
 import email
 import logging
+import re
 import urwid
 
 from urwidtrees import Tree, SimpleTree, CollapsibleTree, ArrowTree
@@ -20,13 +21,15 @@ from ..helper import string_sanitize
 
 ANSI_BACKGROUND = settings.get("interpret_ansi_background")
 
+_SUBTHREAD_STRIP_RE = re.compile(r'^\s*(re:\s*)+', re.I)
+
 
 class MessageSummaryWidget(urwid.WidgetWrap):
     """
     one line summary of a :class:`~alot.db.message.Message`.
     """
 
-    def __init__(self, message, even=True):
+    def __init__(self, message, even=True, show_subject=True):
         """
         :param message: a message
         :type message: alot.db.Message
@@ -35,6 +38,7 @@ class MessageSummaryWidget(urwid.WidgetWrap):
         """
         self.message = message
         self.even = even
+        self.show_subject = show_subject
         if even:
             attr = settings.get_theming_attribute('thread', 'summary', 'even')
         else:
@@ -81,6 +85,10 @@ class MessageSummaryWidget(urwid.WidgetWrap):
         rep = author if author != '' else address
         if date is not None:
             rep += " (%s)" % date
+
+        if self.show_subject:
+            rep += " " + self.message.get_subject()
+
         return rep
 
     def selectable(self):
@@ -158,7 +166,7 @@ class MessageTree(CollapsibleTree):
 
     Collapsing this message corresponds to showing the summary only.
     """
-    def __init__(self, message, odd=True):
+    def __init__(self, message, odd=True, show_subject_in_summary=True):
         """
         :param message: Message to display
         :type message: alot.db.Message
@@ -168,6 +176,7 @@ class MessageTree(CollapsibleTree):
         """
         self._message = message
         self._odd = odd
+        self._show_subject_in_summary = show_subject_in_summary
         self.display_source = False
         self._summaryw = None
         self._bodytree = None
@@ -252,7 +261,9 @@ class MessageTree(CollapsibleTree):
     def _get_summary(self):
         if self._summaryw is None:
             self._summaryw = MessageSummaryWidget(
-                self._message, even=(not self._odd))
+                self._message,
+                even=(not self._odd),
+                show_subject=self._show_subject_in_summary)
         return self._summaryw
 
     def _get_source(self):
@@ -382,12 +393,13 @@ class ThreadTree(Tree):
         self._prev_sibling_of = {}
         self._message = {}
 
-        def accumulate(msg, odd=True):
+        def accumulate(msg, odd=True, show_subject_in_summary=True):
             """recursively read msg and its replies"""
             mid = msg.get_message_id()
-            self._message[mid] = MessageTree(msg, odd)
+            self._message[mid] = MessageTree(msg, odd, show_subject_in_summary)
             odd = not odd
             last = None
+            stripped_subject = _SUBTHREAD_STRIP_RE.sub('', msg.get_subject())
             self._first_child_of[mid] = None
             for reply in thread.get_replies_to(msg):
                 rid = reply.get_message_id()
@@ -397,7 +409,8 @@ class ThreadTree(Tree):
                 self._prev_sibling_of[rid] = last
                 self._next_sibling_of[last] = rid
                 last = rid
-                odd = accumulate(reply, odd)
+                stripped_rsubject = _SUBTHREAD_STRIP_RE.sub('', reply.get_subject())
+                odd = accumulate(reply, odd, stripped_subject != stripped_rsubject)
             self._last_child_of[mid] = last
             return odd
 

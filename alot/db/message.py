@@ -45,6 +45,7 @@ class Message:
             self._datetime = None
         self._filename = str(msg.path)
         self._email = None  # will be read upon first use
+        self._subject = None  # will be read upon first use
         self._attachments = None  # will be read upon first use
         self._mime_part = None  # will be read upon first use
         self._mime_tree = None  # will be read upon first use
@@ -173,6 +174,16 @@ class Message:
         :rtype: (str,str)
         """
         return email.utils.parseaddr(self._from)
+
+    def get_subject(self):
+        """
+        returns message subject
+
+        :rtype: str
+        """
+        if not self._subject:
+            self._subject = decode_header(self.get_email().get('subject', ''))
+        return self._subject
 
     def add_tags(self, tags, afterwards=None, remove_rest=False):
         """
