@@ -476,7 +476,7 @@ def get_body_part(mail, mimetype=None):
     :param mail: the mail to use
     :type mail: :class:`email.message.EmailMessage`
     :returns: The combined text of any parts to be used
-    :rtype: str
+    :rtype: :class:`email.message.MIMEPart`
     """
 
     if not mimetype:
@@ -484,15 +484,13 @@ def get_body_part(mail, mimetype=None):
     preferencelist = {
         'plain': ('plain', 'html'), 'html': ('html', 'plain')}[mimetype]
 
-    body_part = mail.get_body(preferencelist)
-    if body_part is None:  # if no part matching preferredlist was found
-        return ""
-
-    return body_part
+    return mail.get_body(preferencelist)
 
 
 def extract_body_part(body_part):
     """Returns a string view of a Message."""
+    if body_part is None:
+        return ""
     displaystring = ""
     rendered_payload = render_part(
         body_part,
