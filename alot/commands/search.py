@@ -241,13 +241,19 @@ class TagCommand(Command):
 
 @registerCommand(
     MODE, 'move', help='move focus in search buffer',
-    arguments=[(['movement'], {'nargs': argparse.REMAINDER, 'help': 'last'})])
+    arguments=[(['movement'], {'nargs': argparse.REMAINDER, 'help': 'last, next unread, prev unread'})])
 class MoveFocusCommand(MoveCommand):
 
     def apply(self, ui):
         logging.debug(self.movement)
         if self.movement == 'last':
             ui.current_buffer.focus_last()
+            ui.update()
+        elif self.movement == 'next unread':
+            ui.current_buffer.focus_next_unread()
+            ui.update()
+        elif self.movement == 'prev unread':
+            ui.current_buffer.focus_prev_unread()
             ui.update()
         else:
             MoveCommand.apply(self, ui)
