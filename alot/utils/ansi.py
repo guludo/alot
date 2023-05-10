@@ -31,6 +31,11 @@ def parse_ansi_escapes(text):
         new_code = text[j + 1]
         if new_code == '[':
             new_args, k = parse_csi(text, j)
+        elif new_code == ']':
+            # Some mailcap filters use the 'ESC]8...' sequence to create links.
+            # Let's just consume to make sure we either ignore or handle it
+            # properly when rendering.
+            new_args, k = parse_str_until_st(text, j)
         else:
             new_args = None
 
@@ -59,3 +64,10 @@ def parse_csi(text, pos):
         return None, -1
     pb, ib, fb = m.groups()
     return (pb, ib, fb), m.end()
+
+
+def parse_str_until_st(text, pos):
+    i = text.find('\033\\', pos)
+    if i == -1:
+        return None, -1
+    return text[pos:i + 2], i + 2
