@@ -158,8 +158,13 @@ def parse_escapes_to_urwid(text, default_attr=None, default_attr_focus=None,
                         except StopIteration:
                             logging.warning(f'{pb!r}: missing RGB components')
                             break
-                        # TODO: Add support for RGB colors.
-                        logging.warning(f'{pb!r}: RGB color not supported yet')
+
+                        try:
+                            r, g, b = int(r), int(g), int(b)
+                        except ValueError:
+                            logging.warning(f'{pb!r}: expected integer values for RGB color')
+                        else:
+                            attr_value = f'#{r:02x}{g:02x}{b:02x}'
                     else:
                         logging.warning(f'{pb!r}: color type {color_type} ignored')
 
