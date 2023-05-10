@@ -93,7 +93,12 @@ def parse_escapes_to_urwid(text, default_attr=None, default_attr_focus=None,
                 standout=default_attr.underline)
 
     def append_themed_infix(infix):
-        # add using prev attribute
+        if not infix:
+            # FIXME: Not sure why, but things are not rendered correctly if we
+            # have empty infixes (it seems that the following one is not
+            # rendered). Let's bail for now. We need to understand why this is
+            # happening later.
+            return
         urwid_fg = attr['fg']
         urwid_bg = default_attr.background
         for mod in URWID_MODS:
