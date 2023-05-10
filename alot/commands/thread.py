@@ -150,7 +150,7 @@ class ReplyCommand(Command):
             quotestring = 'Quoting %s (%s)\n' % (name or address, timestamp)
         mailcontent = quotestring
         quotehook = settings.get_hook('text_quote')
-        body_text = ansi.remove_csi(self.message.get_body_text())
+        body_text = ansi.strip_ansi_escapes(self.message.get_body_text())
         if quotehook:
             mailcontent += quotehook(body_text)
         else:
@@ -755,7 +755,7 @@ class PipeCommand(Command):
                     pipestrings.append(msgtext)
 
         if self.strip_ansi:
-            pipestrings = [ansi.remove_csi(s) for s in pipestrings]
+            pipestrings = [ansi.strip_ansi_escapes(s) for s in pipestrings]
 
         if not self.separately:
             pipestrings = [separator.join(pipestrings)]

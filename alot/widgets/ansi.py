@@ -186,8 +186,10 @@ def parse_escapes_to_urwid(text, default_attr=None, default_attr_focus=None,
                 else:
                     logging.warning(f'{pb!r}: parameter {param} ignored')
 
-    for pb, ib, fb, infix in ansi.parse_csi(text):
-        update_attr(pb, ib, fb)
+    for code, args, infix in ansi.parse_ansi_escapes(text):
+        if code == '[':
+            pb, ib, fb = args
+            update_attr(pb, ib, fb)
         append_themed_infix(infix)
 
     return urwid_text, urwid_focus
