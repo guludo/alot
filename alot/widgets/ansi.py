@@ -2,6 +2,8 @@
 # This file is released under the GNU GPL, version 3 or a later revision.
 # For further details see the COPYING file
 
+import logging
+
 import urwid
 
 from ..utils import ansi
@@ -91,7 +93,12 @@ def parse_escapes_to_urwid(text, default_attr=None, default_attr_focus=None,
                 standout=default_attr.underline)
 
     def append_themed_infix(infix):
-        # add using prev attribute
+        if not infix:
+            # FIXME: Not sure why, but things are not rendered correctly if we
+            # have empty infixes (it seems that the following one is not
+            # rendered). Let's bail for now. We need to understand why this is
+            # happening later.
+            return
         urwid_fg = attr['fg']
         urwid_bg = default_attr.background
         for mod in URWID_MODS:
@@ -113,26 +120,76 @@ def parse_escapes_to_urwid(text, default_attr=None, default_attr_focus=None,
     def update_attr(pb, _, fb):
         if fb == 'm':
             # selector bit found. this means theming changes
-            if not pb or pb == "0":
-                reset_attr()
-            elif pb.startswith('38;5;'):
-                # 8-bit colour foreground
-                col = pb[5:]
-                attr.update(fg='h' + col)
-            elif pb.startswith('48;5;') and parse_background:
-                # 8-bit colour background
-                col = pb[5:]
-                attr.update(bg='h' + col)
-            else:
-                # Several attributes can be set in the same sequence,
-                # separated by semicolons. Interpret them acc to ECODES
-                codes = pb.split(';')
-                for code in codes:
-                    if code in ECODES:
-                        attr.update(ECODES[code])
 
-    for pb, ib, fb, infix in ansi.parse_csi(text):
-        update_attr(pb, ib, fb)
+            # Several attributes can be set in the same sequence,
+            # separated by semicolons.
+            param_iter = ("0" if v == "" else v for v in pb.split(";"))
+            while True:
+                try:
+                    param = next(param_iter)
+                except StopIteration:
+                    # Done consuming parameters.
+                    break
+
+                if param == "" or param == "0":
+                    reset_attr()
+                elif param in ECODES:
+                    attr.update(ECODES[param])
+                elif param in ('38', '48', '58'):
+                    # Foreground (38), background (48) or underline (58) colour.
+                    # The underline one is currently not supported, but we at
+                    # least parse it for completeness.
+                    try:
+                        color_type = next(param_iter)
+                    except StopIteration:
+                        logging.warning(f'{pb!r}: color param {param} requires arguments')
+                        break
+
+                    attr_name = ''
+                    attr_value = ''
+
+                    if color_type == '5':
+                        # 8-bit index
+                        try:
+                            color_index = next(param_iter)
+                        except StopIteration:
+                            logging.warning(f'{pb!r}: missing 8-bit color index')
+                            break
+                        attr_value = 'h' + color_index
+                    elif color_type == '2':
+                        # RGB
+                        try:
+                            r, g, b = next(param_iter), next(param_iter), next(param_iter)
+                        except StopIteration:
+                            logging.warning(f'{pb!r}: missing RGB components')
+                            break
+
+                        try:
+                            r, g, b = int(r), int(g), int(b)
+                        except ValueError:
+                            logging.warning(f'{pb!r}: expected integer values for RGB color')
+                        else:
+                            attr_value = f'#{r:02x}{g:02x}{b:02x}'
+                    else:
+                        logging.warning(f'{pb!r}: color type {color_type} ignored')
+
+                    if param == '38':
+                        attr_name = 'fg'
+                    elif param == '48':
+                        attr_name = 'bg'
+                    else:
+                        attr_name = ''
+                        logging.warning(f'{pb!r}: coloring parameter {param} ignored')
+
+                    if attr_name and attr_value:
+                        attr.update({attr_name: attr_value})
+                else:
+                    logging.warning(f'{pb!r}: parameter {param} ignored')
+
+    for code, args, infix in ansi.parse_ansi_escapes(text):
+        if code == '[':
+            pb, ib, fb = args
+            update_attr(pb, ib, fb)
         append_themed_infix(infix)
 
     return urwid_text, urwid_focus
