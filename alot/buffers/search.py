@@ -127,6 +127,32 @@ class SearchBuffer(Buffer):
             self.rebuild(reverse=True, restore_focus=False)
             self.body.set_focus(0)
 
+    def _focus_unread(self, direction):
+        _, pos = self.threadlist.get_focus()
+        if pos is None:
+            return
+
+        while True:
+            if direction == 'next':
+                threadlinewidget, pos = self.threadlist.get_next(pos)
+            elif direction == 'prev':
+                threadlinewidget, pos = self.threadlist.get_prev(pos)
+            else:
+                raise Exception(f'bug found: unhandled direction {direction}')
+
+            if pos is None:
+                break
+
+            if 'unread' in threadlinewidget.get_thread().get_tags():
+                self.threadlist.set_focus(pos)
+                break
+
+    def focus_next_unread(self):
+        self._focus_unread('next')
+
+    def focus_prev_unread(self):
+        self._focus_unread('prev')
+
     def focus_thread(self, thread):
         tid = thread.get_thread_id()
         self.consume_pipe_until(lambda w:
